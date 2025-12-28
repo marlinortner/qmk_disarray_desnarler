@@ -1,4 +1,6 @@
 {
+    "keyboard": "desnarler_v1",
+    "keymap": "default",
     "processor": "RP2040",
     "bootloader": "rp2040",
     "manufacturer": "zen_vega",
@@ -73,5 +75,14 @@
                 }
             ]
         }
-    }
+    },
+    "layout": "LAYOUT",
+    "layers": [
+        [
+            "KC_A",
+            "KC_B",
+            "KC_C",
+            "KC_D"
+        ]
+    ]
 }
