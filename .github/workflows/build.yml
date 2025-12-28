@@ -10,7 +10,7 @@ jobs:
       matrix:
 # List of keymap json files to build
         file:
-        - desnarler_1/keyboard.json
+        - keyboards/desnarler_v1/keyboard.json
 
 # End of json file list
 
@@ -22,16 +22,10 @@ jobs:
     - name: Checkout QMK
       uses: actions/checkout@v4
       with:
-        repository: qmk/qmk_firmware
         submodules: recursive
 
-    - name: Checkout userspace
-      uses: actions/checkout@v4
-      with:
-        path: users/${{ github.actor }}
-
     - name: Build firmware
-      run: qmk compile "users/${{ github.actor }}/${{ matrix.file }}"
+      run: qmk compile "${{ matrix.file }}"
 
     - name: Archive firmware
       uses: actions/upload-artifact@v4
