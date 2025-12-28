@@ -11,7 +11,7 @@ jobs:
 # List of keymap json files to build
         file:
         - .json
-        - 
+
 # End of json file list
 
     steps:
@@ -26,7 +26,7 @@ jobs:
         submodules: recursive
 
     - name: Checkout userspace
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         path: users/${{ github.actor }}
 
