@@ -30,9 +30,22 @@ static bool switch_on = false;
 // ----------------------
 // Layer definitions
 // ----------------------
-#define BASE_LAYER_1 0
-#define BASE_LAYER_2 4
+#define _MEET 0
+#define _WORK 1
 #define TAPPING_TERM 200
+#include QMK_KEYBOARD_H
+
+// --- 1. Define Your Setup ---
+// How long (ms) to wait before deciding if it's a Tap or Hold
+#define TAPPING_TERM 200 
+
+// Define Layers
+enum layers {
+    _MEET = 0, // Profile A: Google Meet
+    _WORK      // Profile B: Deep Work
+};
+
+// Define Custom Keycodes for Tap Dance
 // Custom Keycode
 enum custom_keycodes {
     TD_MIC_PTT = 0,  // Tap: Mute (Ctrl+D), Hold: Push-to-Talk (Space)
@@ -45,9 +58,78 @@ enum custom_keycodes {
     CK_COPY,     // Tap: Copy, Hold: Paste
     CK_SHOT      // Tap: Screenshot, Hold: Alt-Tab
 };
-// ----------------------
-// Keymap
-// ----------------------
+
+// --- 2. Tap Dance Logic (The Complex Part) ---
+
+// A. MIC: Tap = Toggle Mute (Ctrl+D), Hold = Push-to-Talk (Space)
+void mic_finished(qk_tap_dance_state_t *state, void *user_data) {
+    if (state->count == 1) { // Single Tap
+        if (state->pressed) { // Key is still held down -> HOLD ACTION
+            register_code(KC_SPACE); 
+        } else {              // Key was released -> TAP ACTION
+            tap_code16(LCTL(KC_D));
+        }
+    }
+}
+
+void mic_reset(qk_tap_dance_state_t *state, void *user_data) {
+    if (state->count == 1) {
+        if (state->pressed) { // Release the Hold
+            unregister_code(KC_SPACE);
+        }
+    }
+}
+
+// B. CAM: Tap = Toggle Cam (Ctrl+E), Hold = Participants (Ctrl+Alt+P)
+void cam_finished(qk_tap_dance_state_t *state, void *user_data) {
+    if (state->count == 1) {
+        if (state->pressed) { // HOLD
+             register_code(KC_LCTRL); register_code(KC_LALT); register_code(KC_P);
+        } else {              // TAP
+            tap_code16(LCTL(KC_E));
+        }
+    }
+}
+
+void cam_reset(qk_tap_dance_state_t *state, void *user_data) {
+    if (state->pressed) { // Cleanup Hold
+        unregister_code(KC_P); unregister_code(KC_LALT); unregister_code(KC_LCTRL);
+    }
+}
+
+// C. HAND: Tap = Raise Hand, Hold = Chat
+void hand_finished(qk_tap_dance_state_t *state, void *user_data) {
+    if (state->count == 1) {
+        if (state->pressed) { // HOLD: Chat
+             tap_code16(LCA(KC_C)); // Just a tap needed to toggle chat pane
+        } else {              // TAP: Raise Hand
+             tap_code16(LCA(KC_H));
+        }
+    }
+}
+
+// D. LEAVE: Tap = Tile View, Hold = Close Tab (Safety)
+void leave_finished(qk_tap_dance_state_t *state, void *user_data) {
+    if (state->count == 1) {
+        if (state->pressed) { // HOLD: Close Tab (Ctrl+W)
+             tap_code16(LCTL(KC_W));
+        } else {              // TAP: Tile View (Usually just click, but mapping Shift+? for Help)
+             tap_code16(LSFT(KC_SLSH)); // Opens Shortcuts menu as placeholder
+        }
+    }
+}
+
+// Register the functions
+qk_tap_dance_action_t tap_dance_actions[] = {
+    [TD_MIC_PTT] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, mic_finished, mic_reset),
+    [TD_CAM_OPT] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, cam_finished, cam_reset),
+    [TD_HND_CHT] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, hand_finished, NULL), // No reset needed for simple taps
+    [TD_LEAVE]   = ACTION_TAP_DANCE_FN_ADVANCED(NULL, leave_finished, NULL)
+};
+
+
+// --- 3. The Keymap Array ---
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     /* Profile A: Google Meet
      * Switch Position 1 (OFF) defaults to this layer
@@ -68,9 +150,53 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_WORK] = LAYOUT(
         // Simple Mod-Taps work here for standard modifiers
         // Tap: Play, Hold: Prev Track
-        MT(MOD_LCTL, KC_MPLY), KC_MUTE, LCTL_T(KC_C), LWIN(LSFT(KC_S)) 
+        MT(MOD_LCTL, KC_MPLY), 
+        
+        // Tap: Mute Audio, Hold: Next Track (Custom via process_record if needed, simplified here)
+        KC_MUTE, 
+        
+        // Tap: C, Hold: Ctrl (Standard copy behavior)
+        LCTL_T(KC_C), 
+        
+        // Screenshot
+        LWIN(LSFT(KC_S)) 
     )
 };
+
+
+// --- 4. The Switch Logic (process_record_user) ---
+
+// Assuming the physical switch is wired to the matrix at index 4 (or a specific pin)
+// Let's assume it's "Key 5" in the matrix for this example.
+// If it is a LATCHING switch, it stays "pressed" when ON.
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // Handling the Physical Profile Switch
+    // Replace KC_F24 with whatever key your switch is wired to in the matrix
+    if (keycode == KC_F24) { 
+        if (record->event.pressed) {
+            layer_on(_WORK); // Switch ON = Work Profile
+        } else {
+            layer_off(_WORK); // Switch OFF = Meet Profile
+        }
+        return false; // Don't send F24 to computer
+    }
+    
+    // Manual "Tap vs Hold" override (The code structure you asked for)
+    // ONLY necessary if you refuse to use Tap Dance above.
+    /*
+    switch (keycode) {
+        case SOME_CUSTOM_KEY:
+            // This is the implementation of your snippet
+            if (record->tap.count == 0) { // This check isn't standard in process_record, use timers!
+                 // See below for explanation
+            }
+            break;
+    }
+    */
+    
+    return true;
+}
 
 void initial_blink(void){
     for (int i = 0; i < 10; i++) {
@@ -130,22 +256,11 @@ static uint32_t last_key_press = 0; // Tracks when the last key was pressed
 // matrix_scan_user: repeated loop
 // ----------------------
 void matrix_scan_user(void) {
-   bool new_mode = !readPin(LAYER_SWITCH_PIN); 
-
-    // Only run if the state has changed to prevent spamming layer_move
+    bool new_mode = !readPin(LAYER_SWITCH_PIN); 
     if (new_mode != switch_on) {
-        switch_on = new_mode;
-        if (switch_on) {
-            layer_move(_WORK); // Clears other layers, jumps to WORK
-        } else {
-            layer_move(_MEET); // Clears other layers, jumps to MEET
-        }
-    } 
-    // ------ start slider once ------
-    if (!slider_ready){
-        last_vol_change = timer_read32();
-        slider_ready = true;
-        return ;
+        switch_on           = new_mode;
+        uint8_t target_base = switch_on ? _WORK : _MEET;
+        layer_move(target_base); // activate the correct base layer
     }
 
     // ------ read slider --------
@@ -169,123 +284,4 @@ void matrix_scan_user(void) {
     } else {
         writePinLow(LED3_PIN);
     }
-}
-// --- 7. The Tap/Hold Logic (Runs on Key Press) ---
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    // Track any key press to light up LED3
-    if (record->event.pressed) {
-        last_key_press = timer_read32();
-    }
-    
-    // We only care about custom keys. Standard keys (Work Layer) are handled automatically by QMK.
-    switch (keycode) {
-        
-        // --- MIC: Tap=Mute (Ctrl+D), Hold=PTT (Space) ---
-        case CK_MIC:
-            if (record->event.pressed) {
-                key_timer = timer_read();
-                register_code(KC_SPACE); // Immediate PTT start
-            } else {
-                unregister_code(KC_SPACE); // PTT stop
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code16(LCTL(KC_D)); // Toggle Mute
-                }
-            }
-            return false;
-
-        // --- CAM: Tap=Cam (Ctrl+E), Hold=Participants ---
-        case CK_CAM:
-            if (record->event.pressed) {
-                key_timer = timer_read();
-            } else {
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code16(LCTL(KC_E));
-                } else {
-                    tap_code16(LCA(KC_P));
-                }
-            }
-            return false;
-
-        // --- HAND: Tap=Hand, Hold=Chat ---
-        case CK_HAND:
-            if (record->event.pressed) {
-                key_timer = timer_read();
-            } else {
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code16(LCA(KC_H));
-                } else {
-                    tap_code16(LCA(KC_C));
-                }
-            }
-            return false;
-
-        // --- LEAVE: Tap=Layout, Hold=Close Tab ---
-        case CK_LEAVE:
-            if (record->event.pressed) {
-                key_timer = timer_read();
-            } else {
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code16(LSFT(KC_SLSH)); // Shortcuts menu
-                } else {
-                    tap_code16(LCTL(KC_W)); // Close Tab
-                }
-            }
-            return false;
-// ==========================================================
-        // PROFILE B: WORK MODE LOGIC
-        // ==========================================================
-
-        case CK_MEDIA: // Tap: Play/Pause | Hold: Prev Track
-            if (record->event.pressed) {
-                key_timer = timer_read();
-            } else {
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code(KC_MPLY); // Play/Pause
-                } else {
-                    tap_code(KC_MPRV); // Previous Track
-                }
-            }
-            return false;
-
-        case CK_AUDIO: // Tap: Mute Audio | Hold: Next Track
-            if (record->event.pressed) {
-                key_timer = timer_read();
-            } else {
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code(KC_MUTE); // System Mute
-                } else {
-                    tap_code(KC_MNXT); // Next Track
-                }
-            }
-            return false;
-
-        case CK_COPY: // Tap: Copy (Ctrl+C) | Hold: Paste (Ctrl+V)
-            if (record->event.pressed) {
-                key_timer = timer_read();
-            } else {
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code16(LCTL(KC_C)); // Copy
-                } else {
-                    tap_code16(LCTL(KC_V)); // Paste
-                }
-            }
-            return false;
-
-        case CK_SHOT: // Tap: Screenshot | Hold: Alt+Tab
-            if (record->event.pressed) {
-                key_timer = timer_read();
-            } else {
-                if (timer_elapsed(key_timer) < HOLD_TIME) {
-                    tap_code16(LWIN(LSFT(KC_S))); // Win+Shift+S
-                } else {
-                    // Quick Alt-Tab (Switch to last window)
-                    register_code(KC_LALT);
-                    tap_code(KC_TAB);
-                    unregister_code(KC_LALT);
-                }
-            }
-            return false;
-    }
-
-    return true; // Return true allows standard keys (Layer 1) to work normally
 }
