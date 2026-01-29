@@ -147,19 +147,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      * |  PLAY/PREV  |  MUTE/NEXT |  COPY/PASTE |  SHOT/APP  |
      * -----------------------------------------------------------
      */
-    [_WORK] = LAYOUT(
-        // Simple Mod-Taps work here for standard modifiers
-        // Tap: Play, Hold: Prev Track
-        MT(MOD_LCTL, KC_MPLY), 
-        
-        // Tap: Mute Audio, Hold: Next Track (Custom via process_record if needed, simplified here)
-        KC_MUTE, 
-        
-        // Tap: C, Hold: Ctrl (Standard copy behavior)
-        LCTL_T(KC_C), 
-        
-        // Screenshot
-        LWIN(LSFT(KC_S)) 
+    [_WORK] = LAYOUT( MT(MOD_LCTL, KC_MPLY), KC_MUTE, LCTL_T(KC_C), LWIN(LSFT(KC_S)) 
     )
 };
 
