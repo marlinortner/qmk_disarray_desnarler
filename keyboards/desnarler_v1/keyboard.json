@@ -1,6 +1,5 @@
 {
     "keyboard": "desnarler_v1",
-    "keymap": "mykeymap",
     "processor": "RP2040",
     "bootloader": "rp2040",
     "manufacturer": "zen_vega",
